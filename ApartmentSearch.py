@@ -6,19 +6,21 @@
 ## How I finally got libspatialindex to install in the raspberry pi. RTree package is dependent on it.
 ##http://www.donkeycar.com/faq/how-do-i-manually-install-the-software-on-raspberry-pi
 
-
+import craigslist
+import datetime
 from craigslist import CraigslistHousing
+from datetime import datetime
 import json
 import geojson
 from geojson import Feature, Point, FeatureCollection
 from math import radians, cos, sin, asin, sqrt
-#from slackclient import SlackClient
+from slackclient import SlackClient
 import time
 import os
 import private
 
 
-
+startTime = datetime.now()
 SLACK_CHANNEL = "#craigslist"
 
 def coord_distance(lon1, lat1, lon2, lat2):
@@ -57,7 +59,6 @@ def findNearest(data, lat, lon):
             nearStation[0] = station
     result = [nearStation[0], nearDist[0]]
     return result
-<<<<<<< Updated upstream
 
 def createFeature(result):
     newFeature = Feature(geometry=Point((result['geotag'][1], result['geotag'][0])))
@@ -70,87 +71,62 @@ def createFeature(result):
     print(newFeature)
     return newFeature
 
-
-with open('GoldLineStations.geojson') as f:
+stations = os.path.join(os.getcwd(),'CraigslistHousing', 'GoldLineStations.geojson')
+with open(stations) as f:
     data = geojson.load(f)
 
-=======
-        
-
-with open('GoldLineStations.geojson') as f:
-    data = json.load(f)
-
->>>>>>> Stashed changes
 cl_h = CraigslistHousing(site='losangeles', area='sgv', category='apa',
-                         filters={'max_price': 1500, 'min_price': 1000, 'min_bedrooms':1, 'max_bedrooms': 1})
+                         filters={'max_price': 1600, 'min_price': 1000, 'min_bedrooms':1, 'max_bedrooms': 1})
 
-<<<<<<< HEAD
 sc = SlackClient(private.SLACK_TOKEN)
-<<<<<<< Updated upstream
-with open('apartments.geojson') as f:
+apartFile = os.path.join(os.getcwd(),'CraigslistHousing', 'apartments.geojson')
+with open(apartFile) as f:
     apartments = geojson.load(f)
     
-while True:
-    posted = apartments["features"]
-    postedID = [item["properties"]["id"] for item in posted]
-=======
-=======
-#sc = SlackClient(SLACK_TOKEN)
->>>>>>> origin/DropRTree
-var = 1
-posted = []
-while var == 1:
->>>>>>> Stashed changes
-    for result in cl_h.get_results(sort_by='newest', geotagged=True):
-        try:
-            location = result['geotag']
-            latitude = location[0]
-            longitude = location[1]
-            #print(str(latitude) + ', ' + str(longitude))
-        except:
-            continue
 
-        closestStation = findNearest(data, latitude, longitude)
-        closestStationName = closestStation[0]
-        print(closestStation)
-<<<<<<< Updated upstream
-        closestStationDist = round(float(closestStation[1]),2)
-=======
-        closestStationDist = float(closestStation[1])
->>>>>>> Stashed changes
-        print(closestStationDist)
-        
-        if float(closestStationDist) > 0.5:
+posted = apartments["features"]
+postedID = [item["properties"]["id"] for item in posted]
+for result in cl_h.get_results(sort_by='newest', geotagged=True):
+    try:
+        location = result['geotag']
+        latitude = location[0]
+        longitude = location[1]
+        #print(str(latitude) + ', ' + str(longitude))
+    except:
+        continue
+
+    closestStation = findNearest(data, latitude, longitude)
+    closestStationName = closestStation[0]
+    print(closestStation)
+    closestStationDist = round(float(closestStation[1]),2)
+    print(closestStationDist)
+    
+    if float(closestStationDist) > 0.5:
+        continue
+        #print("Outside Search Area")
+    else:
+        if result['id'] in postedID:
+            print("Already Saw It!")
             continue
-            #print("Outside Search Area")
         else:
-            if result['id'] in postedID:
-                print("Already Saw It!")
-                continue
-            else:
-                print(result['geotag'])
-                print(result['url'])
-                print('Only ' + str(closestStationDist) + 'mi from ' + closestStationName)
-                desc = "{0} | {1} mi from {2} | {3} | <{4}>".format(result["price"], str(closestStationDist), closestStationName, result["name"], result["url"])
-<<<<<<< Updated upstream
-                sc.api_call(
-                "chat.postMessage", channel=SLACK_CHANNEL, text=desc,
-                username='pybot', icon_emoji=':robot_face:'
-                )
-                feature = createFeature(result)
-                posted.append(feature)
-                postedID.append(result['id'])
-                #tempResults.update(result)
-    apartments["features"]=posted
-    with open('apartments.geojson', 'w') as outfile:
-        json.dump(apartments, outfile)
-=======
-                #sc.api_call(
-                #"chat.postMessage", channel=SLACK_CHANNEL, text=desc,
-                #username='pybot', icon_emoji=':robot_face:'
-                #)
-                posted.append(result['id'])
->>>>>>> Stashed changes
-    print("Pausing for 15min")
-    print(posted)
-    time.sleep(900)
+            print(result['geotag'])
+            print(result['url'])
+            print('Only ' + str(closestStationDist) + 'mi from ' + closestStationName)
+            desc = "{0} | {1} mi from {2} | {3} | <{4}>".format(result["price"], str(closestStationDist), closestStationName, result["name"], result["url"])
+            sc.api_call(
+            "chat.postMessage", channel=SLACK_CHANNEL, text=desc,
+            username='pybot', icon_emoji=':robot_face:'
+            )
+            feature = createFeature(result)
+            posted.append(feature)
+            postedID.append(result['id'])
+            #tempResults.update(result)
+apartments["features"]=posted
+with open(apartFile , 'w') as outfile:
+    json.dump(apartments, outfile)
+
+sc.api_call(
+            "chat.postMessage", channel=SLACK_CHANNEL, text='Run Complete',
+            username='pybot', icon_emoji=':robot_face:'
+            )
+
