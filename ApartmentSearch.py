@@ -23,6 +23,7 @@ import private
 startTime = datetime.now()
 SLACK_CHANNEL = "#craigslist"
 
+# Borrowed function to calculate distance between two Lat Long pairs
 def coord_distance(lon1, lat1, lon2, lat2):
     """
     Calculate the great circle distance between two points 
@@ -60,6 +61,7 @@ def findNearest(data, lat, lon):
     result = [nearStation[0], nearDist[0]]
     return result
 
+# Function to add new features to GeoJson
 def createFeature(result):
     newFeature = Feature(geometry=Point((result['geotag'][1], result['geotag'][0])))
     newFeature["properties"]["id"] = result["id"]
@@ -71,21 +73,29 @@ def createFeature(result):
     print(newFeature)
     return newFeature
 
+# Load Station GeoJSON
 stations = os.path.join(os.getcwd(),'CraigslistHousing', 'GoldLineStations.geojson')
 with open(stations) as f:
     data = geojson.load(f)
 
+# Make query to Craigslist using craigslist package
 cl_h = CraigslistHousing(site='losangeles', area='sgv', category='apa',
                          filters={'max_price': 1600, 'min_price': 1000, 'min_bedrooms':1, 'max_bedrooms': 1})
 
+# Load Private Token for Slack Channel
 sc = SlackClient(private.SLACK_TOKEN)
+
+# Load GeoJSON of previously seen apartments
 apartFile = os.path.join(os.getcwd(),'CraigslistHousing', 'apartments.geojson')
 with open(apartFile) as f:
     apartments = geojson.load(f)
     
-
+# Get apartments that are already in the GeoJSON
 posted = apartments["features"]
+# Get Posting ID for each apartment in the GeoJSON
 postedID = [item["properties"]["id"] for item in posted]
+
+# For each posting in the new Craigslist results pull the coordinates of the Geotag
 for result in cl_h.get_results(sort_by='newest', geotagged=True):
     try:
         location = result['geotag']
@@ -94,37 +104,44 @@ for result in cl_h.get_results(sort_by='newest', geotagged=True):
         #print(str(latitude) + ', ' + str(longitude))
     except:
         continue
-
+# Calculate the closest station based on the geotag
     closestStation = findNearest(data, latitude, longitude)
     closestStationName = closestStation[0]
     print(closestStation)
     closestStationDist = round(float(closestStation[1]),2)
     print(closestStationDist)
-    
+# Ignore results that are farther than .5 mi
     if float(closestStationDist) > 0.5:
         continue
         #print("Outside Search Area")
     else:
+        # Ignore results that are already in the GeoJSON
         if result['id'] in postedID:
             print("Already Saw It!")
             continue
+        # All remaining are new and within the search area.
         else:
+            # Format description of apartment
             print(result['geotag'])
             print(result['url'])
             print('Only ' + str(closestStationDist) + 'mi from ' + closestStationName)
             desc = "{0} | {1} mi from {2} | {3} | <{4}>".format(result["price"], str(closestStationDist), closestStationName, result["name"], result["url"])
+            # Post description to Slack
             sc.api_call(
             "chat.postMessage", channel=SLACK_CHANNEL, text=desc,
             username='pybot', icon_emoji=':robot_face:'
             )
+            # Create a GeoJSON feature for the new apartment
             feature = createFeature(result)
+            # Add new apartment to the GeoJSON
             posted.append(feature)
             postedID.append(result['id'])
             #tempResults.update(result)
 apartments["features"]=posted
+# Save updated GeoJSON to disk.
 with open(apartFile , 'w') as outfile:
     json.dump(apartments, outfile)
-
+# Post message to Slack confirming run incase there were no new apartments.
 sc.api_call(
             "chat.postMessage", channel=SLACK_CHANNEL, text='Run Complete',
             username='pybot', icon_emoji=':robot_face:'
