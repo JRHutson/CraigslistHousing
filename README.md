@@ -2,8 +2,11 @@
 Python Exercise with Craigslist Scraper
 
 Tools:
+
 Python
+
 Craigslist package
+
 GeoJSON
 
 Script pulls Apartment listings from Craigslist based on defined search parameters.
